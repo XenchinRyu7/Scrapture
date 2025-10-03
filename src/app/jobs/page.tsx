@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import NeuCard from '@/components/NeuCard';
 import NeuButton from '@/components/NeuButton';
@@ -43,27 +43,17 @@ export default function JobsPageV2() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<string>('all');
 
-  useEffect(() => {
-    fetchSessions();
-  }, []);
-
-  useEffect(() => {
-    fetchJobs();
-    const interval = setInterval(fetchJobs, 3000);
-    return () => clearInterval(interval);
-  }, [page, filter, selectedSession]);
-
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       const res = await fetch('/api/sessions');
       const data = await res.json();
       setSessions(data);
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error);
+    } catch {
+      console.error('Failed to fetch sessions');
     }
-  };
+  }, []);
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     try {
       let url = `/api/jobs?page=${page}&limit=20`;
       if (filter !== 'all') url += `&status=${filter}`;
@@ -87,10 +77,20 @@ export default function JobsPageV2() {
           },
         });
       }
-    } catch (error) {
-      console.error('Failed to fetch jobs:', error);
+    } catch {
+      console.error('Failed to fetch jobs');
     }
-  };
+  }, [page, filter, selectedSession]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  useEffect(() => {
+    fetchJobs();
+    const interval = setInterval(fetchJobs, 3000);
+    return () => clearInterval(interval);
+  }, [fetchJobs]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

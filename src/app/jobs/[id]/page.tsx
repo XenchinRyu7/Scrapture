@@ -1,12 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import NeuCard from '@/components/NeuCard';
 import NeuButton from '@/components/NeuButton';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { format } from 'date-fns';
+
+interface ApiResponse {
+  url: string;
+  status: number;
+  body?: unknown;
+}
 
 interface Job {
   id: string;
@@ -40,27 +47,25 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'html' | 'structured' | 'metadata' | 'api' | 'screenshot' | 'logs'>('overview');
   const [showDelete, setShowDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const { showToast } = useToast();
+
+  const fetchJob = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/jobs/${params.id}?includeResults=true&includeLogs=true`);
+      const data = await res.json();
+      setJob(data);
+    } catch {
+      console.error('Failed to fetch job');
+    }
+  }, [params.id]);
 
   useEffect(() => {
     fetchJob();
     const interval = setInterval(fetchJob, 3000);
     return () => clearInterval(interval);
-  }, [params.id]);
-
-  const fetchJob = async () => {
-    try {
-      const res = await fetch(`/api/jobs/${params.id}?includeResults=true&includeLogs=true`);
-      const data = await res.json();
-      setJob(data);
-    } catch (error) {
-      console.error('Failed to fetch job:', error);
-    }
-  };
+  }, [fetchJob]);
 
   const handleDelete = async () => {
-    setDeleting(true);
     try {
       const res = await fetch(`/api/jobs/${params.id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -69,21 +74,19 @@ export default function JobDetailPage() {
       } else {
         showToast('Failed to delete job', 'error');
       }
-    } catch (error) {
+    } catch {
       showToast('Failed to delete job', 'error');
-    } finally {
-      setDeleting(false);
     }
   };
 
-  const handleExport = async (format: 'json' | 'txt') => {
+  const handleExport = async (exportFormat: 'json' | 'txt') => {
     if (!job || !job.results[0]) return;
 
     const result = job.results[0];
     let content = '';
-    let filename = `job-${job.id}.${format}`;
+    const filename = `job-${job.id}.${exportFormat}`;
 
-    if (format === 'json') {
+    if (exportFormat === 'json') {
       const exportData = {
         job: {
           id: job.id,
@@ -120,7 +123,7 @@ export default function JobDetailPage() {
       }
     }
 
-    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' });
+    const blob = new Blob([content], { type: exportFormat === 'json' ? 'application/json' : 'text/plain' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -130,7 +133,7 @@ export default function JobDetailPage() {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
 
-    showToast(`Exported as ${format.toUpperCase()}!`, 'success');
+    showToast(`Exported as ${exportFormat.toUpperCase()}!`, 'success');
   };
 
   if (!job) {
@@ -211,7 +214,7 @@ export default function JobDetailPage() {
         {tabs.filter(t => t.show).map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => setActiveTab(tab.key as typeof activeTab)}
             className={`neu-btn px-4 py-2 whitespace-nowrap ${
               activeTab === tab.key ? 'neu-card-inset' : ''
             }`}
@@ -350,14 +353,14 @@ export default function JobDetailPage() {
               </button>
             </div>
             <div className="space-y-4">
-              {Object.entries(metadata).map(([key, value]) => (
-                value && (
+              {Object.entries(metadata)
+                .filter(([, value]) => value)
+                .map(([key, value]) => (
                   <div key={key} className="neu-card-inset p-3 rounded">
                     <div className="text-sm opacity-50 mb-1">{key}</div>
-                    <div className="break-all">{String(value)}</div>
+                    <div className="break-all">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</div>
                   </div>
-                )
-              ))}
+                ))}
             </div>
           </NeuCard>
         )}
@@ -366,7 +369,7 @@ export default function JobDetailPage() {
           <NeuCard className="p-6">
             <h3 className="text-xl font-semibold mb-4">🔌 API Responses</h3>
             <div className="space-y-4">
-              {apiResponses.map((resp: any, idx: number) => (
+              {apiResponses.map((resp: ApiResponse, idx: number) => (
                 <div key={idx} className="neu-card-inset p-4 rounded">
                   <div className="flex justify-between items-center mb-2">
                     <div className="font-mono text-sm">{resp.url}</div>
@@ -377,7 +380,7 @@ export default function JobDetailPage() {
                     </span>
                   </div>
                   <pre className="bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto">
-                    <code>{JSON.stringify(resp.body, null, 2)}</code>
+                    <code>{JSON.stringify(resp.body || {}, null, 2)}</code>
                   </pre>
                 </div>
               ))}
@@ -388,9 +391,11 @@ export default function JobDetailPage() {
         {activeTab === 'screenshot' && result?.screenshotPath && (
           <NeuCard className="p-6">
             <h3 className="text-xl font-semibold mb-4">📸 Screenshot</h3>
-            <img
+            <Image
               src={`/${result.screenshotPath}`}
               alt="Screenshot"
+              width={800}
+              height={600}
               className="w-full rounded-lg shadow-lg"
             />
           </NeuCard>

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // WARNING: This deletes ALL data!
     // Delete in order to respect foreign key constraints
@@ -45,8 +45,9 @@ export async function POST(request: NextRequest) {
         configs: deletedConfigs.count,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Database reset error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

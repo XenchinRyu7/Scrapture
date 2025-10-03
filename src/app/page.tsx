@@ -80,7 +80,7 @@ export default function Dashboard() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        await res.json();
         setSeedUrl('');
         fetchStats();
         fetchSessionStats();

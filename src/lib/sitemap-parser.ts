@@ -1,10 +1,3 @@
-interface SitemapUrl {
-  loc: string;
-  lastmod?: string;
-  changefreq?: string;
-  priority?: string;
-}
-
 export async function parseSitemap(sitemapUrl: string): Promise<string[]> {
   const urls: string[] = [];
   

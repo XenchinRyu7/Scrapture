@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import NeuCard from '@/components/NeuCard';
 import NeuButton from '@/components/NeuButton';
 import { formatDistance } from 'date-fns';
@@ -45,27 +46,17 @@ export default function ResultsPageNew() {
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  useEffect(() => {
-    fetchSessions();
-  }, []);
-
-  useEffect(() => {
-    fetchResults();
-    const interval = setInterval(fetchResults, 5000);
-    return () => clearInterval(interval);
-  }, [page, selectedSession]);
-
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       const res = await fetch('/api/sessions');
       const data = await res.json();
       setSessions(data);
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error);
+    } catch {
+      console.error('Failed to fetch sessions');
     }
-  };
+  }, []);
 
-  const fetchResults = async () => {
+  const fetchResults = useCallback(async () => {
     try {
       let url = `/api/results?page=${page}&limit=20`;
       if (selectedSession !== 'all') url += `&sessionId=${selectedSession}`;
@@ -73,10 +64,20 @@ export default function ResultsPageNew() {
       const res = await fetch(url);
       const data = await res.json();
       setResponse(data);
-    } catch (error) {
-      console.error('Failed to fetch results:', error);
+    } catch {
+      console.error('Failed to fetch results');
     }
-  };
+  }, [page, selectedSession]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  useEffect(() => {
+    fetchResults();
+    const interval = setInterval(fetchResults, 5000);
+    return () => clearInterval(interval);
+  }, [fetchResults]);
 
   const results = response?.results || [];
   const pagination = response?.pagination;
@@ -139,9 +140,11 @@ export default function ResultsPageNew() {
               <NeuCard className="p-4 hover:scale-[1.02] cursor-pointer h-full">
                 {result.screenshotPath && (
                   <div className="aspect-video bg-gray-200 dark:bg-gray-800 rounded-lg overflow-hidden mb-3">
-                    <img
+                    <Image
                       src={`/${result.screenshotPath}`}
                       alt={result.url}
+                      width={400}
+                      height={225}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -181,9 +184,11 @@ export default function ResultsPageNew() {
                 <div className="flex gap-4">
                   {result.screenshotPath && (
                     <div className="w-32 h-24 bg-gray-200 dark:bg-gray-800 rounded-lg overflow-hidden flex-shrink-0">
-                      <img
+                      <Image
                         src={`/${result.screenshotPath}`}
                         alt={result.url}
+                        width={128}
+                        height={96}
                         className="w-full h-full object-cover"
                       />
                     </div>

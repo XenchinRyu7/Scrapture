@@ -10,32 +10,27 @@ export default function SettingsPage() {
   const [showResetDB, setShowResetDB] = useState(false);
   const [showClearCache, setShowClearCache] = useState(false);
   const [showClearScreenshots, setShowClearScreenshots] = useState(false);
-  const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
-  const handleResetDatabase = async () => {
-    setLoading(true);
+    const handleResetDatabase = async () => {
     try {
       const res = await fetch('/api/settings/reset-database', {
         method: 'POST',
       });
 
       if (res.ok) {
-        showToast('🗑️ Database reset successfully!', 'success');
+        const result = await res.json();
+        showToast(`✅ Database reset successful! Deleted: ${result.deleted.sessions} sessions, ${result.deleted.jobs} jobs, ${result.deleted.results} results`, 'success');
         setShowResetDB(false);
       } else {
-        const data = await res.json();
-        showToast(data.error || 'Failed to reset database', 'error');
+        showToast('❌ Failed to reset database', 'error');
       }
-    } catch (error) {
-      showToast('Failed to reset database', 'error');
-    } finally {
-      setLoading(false);
+    } catch {
+      showToast('❌ Failed to reset database', 'error');
     }
   };
 
   const handleClearCache = async () => {
-    setLoading(true);
     try {
       const res = await fetch('/api/settings/clear-cache', {
         method: 'POST',
@@ -48,15 +43,12 @@ export default function SettingsPage() {
         const data = await res.json();
         showToast(data.error || 'Failed to clear cache', 'error');
       }
-    } catch (error) {
+    } catch {
       showToast('Failed to clear cache', 'error');
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleClearScreenshots = async () => {
-    setLoading(true);
     try {
       const res = await fetch('/api/settings/clear-screenshots', {
         method: 'POST',
@@ -70,10 +62,8 @@ export default function SettingsPage() {
         const data = await res.json();
         showToast(data.error || 'Failed to clear screenshots', 'error');
       }
-    } catch (error) {
+    } catch {
       showToast('Failed to clear screenshots', 'error');
-    } finally {
-      setLoading(false);
     }
   };
 

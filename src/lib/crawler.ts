@@ -44,7 +44,7 @@ export class Crawler {
       url: string;
       method: string;
       status: number;
-      body: any;
+      body: unknown;
     }> = [];
 
     if (config.captureApiResponses) {
@@ -61,8 +61,8 @@ export class Crawler {
               status: response.status(),
               body,
             });
-          } catch (e) {
-            //
+          } catch {
+            // Silent fail
           }
         }
       });
@@ -82,7 +82,7 @@ export class Crawler {
 
     const htmlContent = await page.content();
     
-    let jsonData: Record<string, any> | undefined;
+    let jsonData: Record<string, unknown> | undefined;
     if (this.options.selectors) {
       jsonData = {};
       for (const [key, selector] of Object.entries(this.options.selectors)) {
@@ -91,8 +91,8 @@ export class Crawler {
           if (element) {
             jsonData[key] = await element.textContent();
           }
-        } catch (e) {
-          //
+        } catch {
+          // Silent fail
         }
       }
     }
@@ -115,9 +115,14 @@ export class Crawler {
   private async crawlMultiPage(config: CrawlConfig): Promise<CrawlData> {
     const visited = new Set<string>();
     const queue: string[] = [config.url];
-    const allData: Array<{ url: string; html: string; data?: any }> = [];
-    const allApiResponses: Array<any> = [];
-    let screenshots: Buffer[] = [];
+    const allData: Array<{ url: string; html: string; data?: Record<string, unknown> }> = [];
+    const allApiResponses: Array<{
+      url: string;
+      method: string;
+      status: number;
+      body: unknown;
+    }> = [];
+    const screenshots: Buffer[] = [];
     
     const maxPages = config.maxPages || 10;
     const linkSelector = config.linkSelector || 'a[href]';
@@ -149,8 +154,8 @@ export class Crawler {
                   status: response.status(),
                   body,
                 });
-              } catch (e) {
-                //
+              } catch {
+                // Silent fail
               }
             }
           });
@@ -166,7 +171,7 @@ export class Crawler {
 
         const htmlContent = await page.content();
         
-        let jsonData: Record<string, any> | undefined;
+        let jsonData: Record<string, unknown> | undefined;
         if (this.options.selectors) {
           jsonData = {};
           for (const [key, selector] of Object.entries(this.options.selectors)) {
@@ -176,8 +181,8 @@ export class Crawler {
                 elements.map(el => el.textContent())
               );
               jsonData[key] = texts.filter(t => t).join(' | ');
-            } catch (e) {
-              //
+            } catch {
+              // Silent fail
             }
           }
         }
@@ -194,7 +199,7 @@ export class Crawler {
         }
 
         const links = await page.$$eval(linkSelector, (elements) => 
-          elements.map((el: any) => el.href).filter(href => href)
+          elements.map((el) => (el as HTMLAnchorElement).href).filter(href => href)
         );
 
         for (const link of links) {
@@ -210,8 +215,8 @@ export class Crawler {
             if (!visited.has(normalizedUrl) && !queue.includes(normalizedUrl)) {
               queue.push(normalizedUrl);
             }
-          } catch (e) {
-            //
+          } catch {
+            // Silent fail
           }
         }
 

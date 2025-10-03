@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import NeuCard from '@/components/NeuCard';
 import NeuButton from '@/components/NeuButton';
@@ -51,21 +51,21 @@ export default function SessionDetailPage() {
   const [session, setSession] = useState<Session | null>(null);
   const { showToast } = useToast();
 
-  useEffect(() => {
-    fetchSession();
-    const interval = setInterval(fetchSession, 3000);
-    return () => clearInterval(interval);
-  }, [params.id]);
-
-  const fetchSession = async () => {
+  const fetchSession = useCallback(async () => {
     try {
       const res = await fetch(`/api/sessions/${params.id}`);
       const data = await res.json();
       setSession(data);
-    } catch (error) {
-      console.error('Failed to fetch session:', error);
+    } catch {
+      console.error('Failed to fetch session');
     }
-  };
+  }, [params.id]);
+
+  useEffect(() => {
+    fetchSession();
+    const interval = setInterval(fetchSession, 3000);
+    return () => clearInterval(interval);
+  }, [fetchSession]);
 
   const handleExport = async (format: 'json' | 'csv' | 'ndjson') => {
     try {
@@ -83,7 +83,7 @@ export default function SessionDetailPage() {
       document.body.removeChild(a);
 
       showToast(`Exported as ${format.toUpperCase()}!`, 'success');
-    } catch (error) {
+    } catch {
       showToast('Export failed', 'error');
     }
   };

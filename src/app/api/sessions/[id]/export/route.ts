@@ -3,14 +3,15 @@ import { prisma } from '@/lib/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'json'; // json, csv, ndjson
 
     const session = await prisma.crawlSession.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         jobs: {
           include: {
@@ -47,7 +48,7 @@ export async function GET(
       return new NextResponse(csv, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="session-${params.id}.csv"`,
+          'Content-Disposition': `attachment; filename="session-${id}.csv"`,
         },
       });
     }
@@ -57,7 +58,7 @@ export async function GET(
       return new NextResponse(ndjson, {
         headers: {
           'Content-Type': 'application/x-ndjson',
-          'Content-Disposition': `attachment; filename="session-${params.id}.ndjson"`,
+          'Content-Disposition': `attachment; filename="session-${id}.ndjson"`,
         },
       });
     }
@@ -66,16 +67,33 @@ export async function GET(
     return new NextResponse(JSON.stringify(exportData, null, 2), {
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="session-${params.id}.json"`,
+        'Content-Disposition': `attachment; filename="session-${id}.json"`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Export error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-function convertToCSV(data: any[]): string {
+interface ExportDataItem {
+  url: string;
+  jobId: string;
+  status: string;
+  depth: number;
+  title: unknown;
+  structuredData: unknown;
+  metadata: unknown;
+  extractedText: string | null;
+  wordCount: number;
+  contentHash: string | null;
+  apiResponses: unknown;
+  screenshotPath: string | null;
+  crawledAt: Date;
+}
+
+function convertToCSV(data: ExportDataItem[]): string {
   if (data.length === 0) return '';
 
   const headers = [
@@ -95,7 +113,7 @@ function convertToCSV(data: any[]): string {
     escapeCSV(item.url),
     escapeCSV(item.status),
     item.depth,
-    escapeCSV(item.title || ''),
+    escapeCSV(String(item.title || '')),
     item.wordCount,
     escapeCSV(item.contentHash || ''),
     item.structuredData ? 'yes' : 'no',

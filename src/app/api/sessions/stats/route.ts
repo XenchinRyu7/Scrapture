@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const [total, running, completed] = await Promise.all([
       prisma.crawlSession.count(),
@@ -14,8 +14,9 @@ export async function GET(request: NextRequest) {
       running,
       completed,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to fetch session stats:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

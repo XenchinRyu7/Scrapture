@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import Redis from 'ioredis';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
     
@@ -25,8 +25,9 @@ export async function POST(request: NextRequest) {
       message: 'Cache cleared successfully',
       keysDeleted: keys.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Clear cache error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

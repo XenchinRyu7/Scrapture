@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
+import { NextResponse } from 'next/server';
+import fs from 'fs/promises';
 import path from 'path';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const screenshotsDir = path.join(process.cwd(), 'public', 'screenshots');
     
@@ -43,8 +43,9 @@ export async function POST(request: NextRequest) {
       message: 'Screenshots cleared successfully',
       count: deletedCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Clear screenshots error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

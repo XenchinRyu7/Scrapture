@@ -1,6 +1,6 @@
 import { chromium, Browser, Page } from 'playwright';
 import { prisma } from './db';
-import { normalizeUrl, isNonHtmlResource, isSameDomain, hashContent, calculateUrlPriority } from './url-normalizer';
+import { normalizeUrl, isNonHtmlResource, isSameDomain, hashContent } from './url-normalizer';
 import { parseRobotsTxt, RobotsRules } from './robots-parser';
 import { parseSitemap, discoverSitemaps } from './sitemap-parser';
 import { parseHTML, extractJSONLD, extractMetadata } from './html-parser';
@@ -39,6 +39,7 @@ export class AdvancedCrawler {
       screenshot: config.screenshot ?? true,
       captureApiResponses: config.captureApiResponses ?? true,
       autoScroll: config.autoScroll ?? true,
+      domainConfigId: config.domainConfigId ?? '',
     };
   }
 
@@ -107,8 +108,9 @@ export class AdvancedCrawler {
         data: { status: 'completed', completedAt: new Date() },
       });
 
-    } catch (error: any) {
-      await this.logMessage('error', `Crawl session failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await this.logMessage('error', `Crawl session failed: ${errorMessage}`);
       await prisma.crawlSession.update({
         where: { id: this.sessionId },
         data: { status: 'failed' },
@@ -181,15 +183,16 @@ export class AdvancedCrawler {
         });
 
         await this.logMessage('info', `Crawled [${crawledCount}/${maxPages}]: ${nextUrl.url}`);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         await prisma.discoveredUrl.update({
           where: { id: nextUrl.id },
           data: { 
             status: 'failed',
-            error: error.message,
+            error: errorMessage,
           },
         });
-        await this.logMessage('error', `Failed to crawl: ${nextUrl.url} - ${error.message}`);
+        await this.logMessage('error', `Failed to crawl: ${nextUrl.url} - ${errorMessage}`);
       }
     }
   }
@@ -198,7 +201,12 @@ export class AdvancedCrawler {
     const page = await this.browser!.newPage();
 
     try {
-      const apiResponses: Array<any> = [];
+      const apiResponses: Array<{
+        url: string;
+        method: string;
+        status: number;
+        body: unknown;
+      }> = [];
 
       // Capture API responses
       if (this.config.captureApiResponses) {
@@ -227,17 +235,17 @@ export class AdvancedCrawler {
         const pushState = history.pushState;
         const replaceState = history.replaceState;
         
-        (window as any).__spaUrls = [];
+        (window as unknown as { __spaUrls: string[] }).__spaUrls = [];
         
         history.pushState = function(...args) {
           const url = args[2];
-          if (url) (window as any).__spaUrls.push(url);
+          if (url) (window as unknown as { __spaUrls: string[] }).__spaUrls.push(String(url));
           return pushState.apply(history, args);
         };
         
         history.replaceState = function(...args) {
           const url = args[2];
-          if (url) (window as any).__spaUrls.push(url);
+          if (url) (window as unknown as { __spaUrls: string[] }).__spaUrls.push(String(url));
           return replaceState.apply(history, args);
         };
       });
@@ -250,14 +258,14 @@ export class AdvancedCrawler {
 
       // Extract all links
       const links = await page.$$eval('a[href]', (elements) => 
-        elements.map((el: any) => el.href).filter(href => href)
+        elements.map((el) => (el as HTMLAnchorElement).href).filter(href => href)
       );
 
       // Extract canonical URL
-      const canonical = await page.$eval('link[rel="canonical"]', el => (el as any).href).catch(() => null);
+      const canonical = await page.$eval('link[rel="canonical"]', el => (el as HTMLLinkElement).href).catch(() => null);
 
       // Get SPA URLs
-      const spaUrls = await page.evaluate(() => (window as any).__spaUrls || []);
+      const spaUrls = await page.evaluate(() => (window as unknown as { __spaUrls: string[] }).__spaUrls || []);
 
       // Get HTML content
       const htmlContent = await page.content();
@@ -375,9 +383,6 @@ export class AdvancedCrawler {
         return; // Already discovered
       }
 
-      // Calculate priority
-      const priority = calculateUrlPriority(normalized.normalized);
-
       // Add to frontier
       await prisma.discoveredUrl.create({
         data: {
@@ -390,9 +395,10 @@ export class AdvancedCrawler {
         },
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Silent fail for enqueue errors
-      console.error('Enqueue error:', error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Enqueue error:', errorMessage);
     }
   }
 
