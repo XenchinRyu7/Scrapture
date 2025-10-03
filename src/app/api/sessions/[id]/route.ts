@@ -19,7 +19,13 @@ export async function GET(
         orderBy: { createdAt: 'desc' },
         take: 20,
         include: {
-          results: true,
+          results: {
+            select: {
+              structuredData: true,
+              metadata: true,
+              extractedText: true,
+            },
+          },
           logs: true,
         },
       },
@@ -49,6 +55,42 @@ export async function GET(
     _count: true,
   });
 
+  // Calculate overall stats
+  let totalStructuredData = 0;
+  let totalWords = 0;
+  let totalMetadata = 0;
+  let completedJobs = 0;
+
+  session.jobs.forEach(job => {
+    if (job.status === 'completed') completedJobs++;
+    
+    job.results.forEach(result => {
+      if (result.structuredData) {
+        try {
+          const parsed = JSON.parse(result.structuredData);
+          totalStructuredData += Array.isArray(parsed) ? parsed.length : 1;
+        } catch {}
+      }
+      if (result.metadata) {
+        try {
+          const parsed = JSON.parse(result.metadata);
+          totalMetadata += Object.keys(parsed).filter(k => parsed[k]).length;
+        } catch {}
+      }
+      if (result.extractedText) {
+        totalWords += result.extractedText.split(/\s+/).length;
+      }
+    });
+  });
+
+  const overallStats = {
+    totalJobs: session._count.jobs,
+    completedJobs,
+    totalStructuredData,
+    totalWords,
+    totalMetadata,
+  };
+
   return NextResponse.json({
     ...session,
     stats: {
@@ -61,6 +103,7 @@ export async function GET(
         return acc;
       }, {} as Record<number, number>),
     },
+    overallStats,
   });
 }
 

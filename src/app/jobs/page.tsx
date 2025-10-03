@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import NeuCard from '@/components/NeuCard';
-import ConfirmDialog from '@/components/ConfirmDialog';
+import NeuButton from '@/components/NeuButton';
 import { formatDistance } from 'date-fns';
 
 interface Job {
@@ -11,32 +11,82 @@ interface Job {
   url: string;
   status: string;
   createdAt: string;
-  updatedAt: string;
-  error?: string;
+  sessionId?: string;
+  depth?: number;
+  _count?: {
+    results: number;
+    logs: number;
+  };
 }
 
-export default function JobsPage() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+interface Session {
+  id: string;
+  seedUrl: string;
+  status: string;
+  createdAt: string;
+}
+
+interface PaginatedResponse {
+  jobs: Job[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export default function JobsPageV2() {
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [selectedSession, setSelectedSession] = useState<string>('all');
+  const [response, setResponse] = useState<PaginatedResponse | null>(null);
+  const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<string>('all');
-  const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [showBulkDelete, setShowBulkDelete] = useState(false);
-  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  useEffect(() => {
+    fetchSessions();
+  }, []);
 
   useEffect(() => {
     fetchJobs();
     const interval = setInterval(fetchJobs, 3000);
     return () => clearInterval(interval);
-  }, [filter]);
+  }, [page, filter, selectedSession]);
+
+  const fetchSessions = async () => {
+    try {
+      const res = await fetch('/api/sessions');
+      const data = await res.json();
+      setSessions(data);
+    } catch (error) {
+      console.error('Failed to fetch sessions:', error);
+    }
+  };
 
   const fetchJobs = async () => {
     try {
-      const url = filter === 'all' 
-        ? '/api/jobs' 
-        : `/api/jobs?status=${filter}`;
+      let url = `/api/jobs?page=${page}&limit=20`;
+      if (filter !== 'all') url += `&status=${filter}`;
+      if (selectedSession !== 'all') url += `&sessionId=${selectedSession}`;
+      
       const res = await fetch(url);
       const data = await res.json();
-      setJobs(data);
+      
+      // Handle both old and new API format
+      if (data.jobs) {
+        setResponse(data);
+      } else if (Array.isArray(data)) {
+        // Old format - wrap in pagination object
+        setResponse({
+          jobs: data,
+          pagination: {
+            page: 1,
+            limit: data.length,
+            total: data.length,
+            totalPages: 1,
+          },
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch jobs:', error);
     }
@@ -52,144 +102,152 @@ export default function JobsPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteJobId) return;
-    
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/jobs/${deleteJobId}`, {
-        method: 'DELETE',
-      });
-
-      if (res.ok) {
-        fetchJobs();
-        setDeleteJobId(null);
-      } else {
-        alert('Failed to delete job');
-      }
-    } catch (error) {
-      console.error('Failed to delete job:', error);
-      alert('Failed to delete job');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    setBulkDeleting(true);
-    try {
-      const res = await fetch('/api/jobs/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: filter }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        fetchJobs();
-        setShowBulkDelete(false);
-        alert(data.message);
-      } else {
-        alert('Failed to bulk delete jobs');
-      }
-    } catch (error) {
-      console.error('Failed to bulk delete jobs:', error);
-      alert('Failed to bulk delete jobs');
-    } finally {
-      setBulkDeleting(false);
-    }
-  };
-
   const filters = ['all', 'pending', 'queued', 'running', 'completed', 'failed'];
+
+  const jobs = response?.jobs || [];
+  const pagination = response?.pagination;
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-bold">Jobs</h1>
-        {filter !== 'all' && jobs.length > 0 && (
-          <button
-            onClick={() => setShowBulkDelete(true)}
-            className="neu-btn px-4 py-2 text-red-500"
+      <h1 className="text-4xl font-bold">Jobs</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Session Filter */}
+        <NeuCard className="p-4">
+          <label className="text-sm opacity-70 mb-2 block">Filter by Session</label>
+          <select
+            value={selectedSession}
+            onChange={(e) => {
+              setSelectedSession(e.target.value);
+              setPage(1);
+            }}
+            className="w-full neu-input p-3 rounded-lg"
           >
-            🗑️ Delete All {filter}
-          </button>
-        )}
+            <option value="all">All Sessions</option>
+            {sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.seedUrl} ({session.status})
+              </option>
+            ))}
+          </select>
+        </NeuCard>
+
+        {/* Status Filter */}
+        <NeuCard className="p-4">
+          <label className="text-sm opacity-70 mb-2 block">Filter by Status</label>
+          <div className="flex gap-2 flex-wrap">
+            {filters.map((f) => (
+              <button
+                key={f}
+                onClick={() => {
+                  setFilter(f);
+                  setPage(1);
+                }}
+                className={`neu-btn px-3 py-2 text-sm capitalize ${
+                  filter === f ? 'neu-card-inset' : ''
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </NeuCard>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        {filters.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`neu-btn px-4 py-2 capitalize ${
-              filter === f ? 'neu-card-inset' : ''
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+      {/* Pagination Info */}
+      {pagination && (
+        <div className="text-sm opacity-70 text-center">
+          Showing {jobs.length} of {pagination.total} jobs
+          {selectedSession !== 'all' && ' in selected session'}
+          {' • '}
+          Page {pagination.page} of {pagination.totalPages}
+        </div>
+      )}
 
+      {/* Jobs List */}
       <div className="space-y-4">
         {jobs.map((job) => (
-          <NeuCard key={job.id} className="p-6 hover:scale-[1.01] relative group">
-            <Link href={`/jobs/${job.id}`} className="block">
+          <Link key={job.id} href={`/jobs/${job.id}`}>
+            <NeuCard className="p-6 hover:scale-[1.01] cursor-pointer">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <div className="font-mono text-sm opacity-50">{job.id}</div>
-                  <div className="text-lg font-semibold mt-1 break-all">{job.url}</div>
-                  <div className="text-sm mt-2 opacity-70">
-                    {formatDistance(new Date(job.createdAt), new Date(), { addSuffix: true })}
+                  <div className="flex items-center gap-2">
+                    {job.depth !== undefined && (
+                      <span className="text-xs neu-card-inset px-2 py-1 rounded">
+                        Depth {job.depth}
+                      </span>
+                    )}
+                    <div className="font-mono text-xs opacity-50">{job.id.slice(0, 8)}</div>
                   </div>
-                  {job.error && (
-                    <div className="text-sm text-red-500 mt-2">{job.error}</div>
-                  )}
+                  <div className="text-lg font-semibold mt-2 break-all">{job.url}</div>
+                  <div className="flex gap-4 mt-2 text-sm opacity-70">
+                    <span>
+                      {formatDistance(new Date(job.createdAt), new Date(), { addSuffix: true })}
+                    </span>
+                    {job._count && (
+                      <>
+                        <span>📄 {job._count.results} results</span>
+                        <span>📝 {job._count.logs} logs</span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className={`font-semibold uppercase text-sm ${getStatusColor(job.status)}`}>
                   {job.status}
                 </div>
               </div>
-            </Link>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteJobId(job.id);
-              }}
-              className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity neu-btn p-2 text-red-500 hover:scale-110"
-              title="Delete job"
-            >
-              🗑️
-            </button>
-          </NeuCard>
+            </NeuCard>
+          </Link>
         ))}
         {jobs.length === 0 && (
           <NeuCard className="p-8 text-center opacity-50">
-            No jobs found
+            No jobs found with current filters
           </NeuCard>
         )}
       </div>
 
-      <ConfirmDialog
-        isOpen={deleteJobId !== null}
-        title="Delete Job"
-        message="Are you sure you want to delete this job? This action cannot be undone. All results and logs will be permanently deleted."
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteJobId(null)}
-        confirmText={deleting ? 'Deleting...' : 'Delete'}
-        cancelText="Cancel"
-        danger
-      />
-
-      <ConfirmDialog
-        isOpen={showBulkDelete}
-        title={`Delete All ${filter} Jobs`}
-        message={`Are you sure you want to delete ALL ${filter} jobs (${jobs.length} job${jobs.length !== 1 ? 's' : ''})? This action cannot be undone. All results, logs, and screenshots will be permanently deleted.`}
-        onConfirm={handleBulkDelete}
-        onCancel={() => setShowBulkDelete(false)}
-        confirmText={bulkDeleting ? 'Deleting...' : 'Delete All'}
-        cancelText="Cancel"
-        danger
-      />
+      {/* Pagination Controls */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          <NeuButton
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            ← Previous
+          </NeuButton>
+          <div className="flex gap-1">
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+              let pageNum;
+              if (pagination.totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (page <= 3) {
+                pageNum = i + 1;
+              } else if (page >= pagination.totalPages - 2) {
+                pageNum = pagination.totalPages - 4 + i;
+              } else {
+                pageNum = page - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={`neu-btn w-10 h-10 ${
+                    page === pageNum ? 'neu-card-inset' : ''
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+          <NeuButton
+            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            disabled={page === pagination.totalPages}
+          >
+            Next →
+          </NeuButton>
+        </div>
+      )}
     </div>
   );
 }

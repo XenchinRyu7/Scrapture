@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import NeuCard from '@/components/NeuCard';
+import NeuButton from '@/components/NeuButton';
+import { useToast } from '@/components/Toast';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -25,16 +27,29 @@ interface Session {
     id: string;
     url: string;
     status: string;
+    results: Array<{
+      structuredData?: string;
+      metadata?: string;
+      extractedText?: string;
+    }>;
   }>;
   stats: {
     byStatus: Record<string, number>;
     byDepth: Record<number, number>;
+  };
+  overallStats?: {
+    totalJobs: number;
+    completedJobs: number;
+    totalStructuredData: number;
+    totalWords: number;
+    totalMetadata: number;
   };
 }
 
 export default function SessionDetailPage() {
   const params = useParams();
   const [session, setSession] = useState<Session | null>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchSession();
@@ -49,6 +64,27 @@ export default function SessionDetailPage() {
       setSession(data);
     } catch (error) {
       console.error('Failed to fetch session:', error);
+    }
+  };
+
+  const handleExport = async (format: 'json' | 'csv' | 'ndjson') => {
+    try {
+      const response = await fetch(`/api/sessions/${params.id}/export?format=${format}`);
+      if (!response.ok) throw new Error('Export failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `session-${params.id}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      showToast(`Exported as ${format.toUpperCase()}!`, 'success');
+    } catch (error) {
+      showToast('Export failed', 'error');
     }
   };
 
@@ -68,7 +104,20 @@ export default function SessionDetailPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-4xl font-bold">🕷️ Session Details</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-4xl font-bold">🕷️ Session Details</h1>
+        <div className="flex gap-2">
+          <NeuButton onClick={() => handleExport('json')}>
+            📄 Export JSON
+          </NeuButton>
+          <NeuButton onClick={() => handleExport('csv')}>
+            📊 Export CSV
+          </NeuButton>
+          <NeuButton onClick={() => handleExport('ndjson')}>
+            📋 Export NDJSON
+          </NeuButton>
+        </div>
+      </div>
 
       <NeuCard className="p-6">
         <div className="space-y-4">
@@ -96,6 +145,37 @@ export default function SessionDetailPage() {
           </div>
         </div>
       </NeuCard>
+
+      {/* Overall Statistics */}
+      {session.overallStats && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <NeuCard className="p-4">
+            <div className="text-3xl mb-2">📋</div>
+            <div className="text-2xl font-bold">{session.overallStats.totalJobs}</div>
+            <div className="text-sm opacity-70">Total Jobs</div>
+          </NeuCard>
+          <NeuCard className="p-4">
+            <div className="text-3xl mb-2">✅</div>
+            <div className="text-2xl font-bold text-green-500">{session.overallStats.completedJobs}</div>
+            <div className="text-sm opacity-70">Completed</div>
+          </NeuCard>
+          <NeuCard className="p-4">
+            <div className="text-3xl mb-2">🏷️</div>
+            <div className="text-2xl font-bold text-purple-500">{session.overallStats.totalStructuredData}</div>
+            <div className="text-sm opacity-70">Structured Data</div>
+          </NeuCard>
+          <NeuCard className="p-4">
+            <div className="text-3xl mb-2">📝</div>
+            <div className="text-2xl font-bold text-blue-500">{session.overallStats.totalWords.toLocaleString()}</div>
+            <div className="text-sm opacity-70">Total Words</div>
+          </NeuCard>
+          <NeuCard className="p-4">
+            <div className="text-3xl mb-2">📋</div>
+            <div className="text-2xl font-bold text-yellow-500">{session.overallStats.totalMetadata}</div>
+            <div className="text-sm opacity-70">Metadata Items</div>
+          </NeuCard>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <NeuCard className="p-6">
@@ -167,7 +247,86 @@ export default function SessionDetailPage() {
       </NeuCard>
 
       <NeuCard className="p-6">
-        <h2 className="text-2xl font-semibold mb-4">Crawled Jobs</h2>
+        <h2 className="text-2xl font-semibold mb-4">📊 Extracted Data Preview</h2>
+        <div className="space-y-4 max-h-96 overflow-y-auto">
+          {session.jobs.filter(j => j.status === 'completed' && j.results.length > 0).slice(0, 5).map((job) => {
+            const result = job.results[0];
+            const structured = result.structuredData ? JSON.parse(result.structuredData) : null;
+            const metadata = result.metadata ? JSON.parse(result.metadata) : null;
+            
+            return (
+              <div key={job.id} className="neu-card-inset p-4 rounded">
+                <div className="flex justify-between items-start mb-2">
+                  <a href={`/jobs/${job.id}`} className="text-sm font-semibold text-blue-500 hover:underline break-all flex-1">
+                    {job.url}
+                  </a>
+                </div>
+                
+                {/* Structured Data Preview */}
+                {structured && structured.length > 0 && (
+                  <div className="mt-2 text-sm">
+                    <div className="font-semibold opacity-70">🏷️ Structured Data:</div>
+                    <div className="bg-gray-50 dark:bg-gray-900 p-2 rounded mt-1 text-xs">
+                      {structured[0]['@type'] && (
+                        <div><strong>Type:</strong> {structured[0]['@type']}</div>
+                      )}
+                      {structured[0].name && (
+                        <div><strong>Name:</strong> {structured[0].name}</div>
+                      )}
+                      {structured[0].headline && (
+                        <div><strong>Headline:</strong> {structured[0].headline}</div>
+                      )}
+                      {structured[0].description && (
+                        <div className="opacity-70 truncate"><strong>Description:</strong> {structured[0].description}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Metadata Preview */}
+                {metadata && (
+                  <div className="mt-2 text-sm">
+                    <div className="font-semibold opacity-70">📋 Metadata:</div>
+                    <div className="grid grid-cols-2 gap-2 mt-1 text-xs">
+                      {metadata.canonical && (
+                        <div className="truncate"><strong>Canonical:</strong> {metadata.canonical.slice(0, 40)}...</div>
+                      )}
+                      {metadata.author && (
+                        <div><strong>Author:</strong> {metadata.author}</div>
+                      )}
+                      {metadata.ogType && (
+                        <div><strong>Type:</strong> {metadata.ogType}</div>
+                      )}
+                      {metadata.language && (
+                        <div><strong>Language:</strong> {metadata.language}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Extracted Text Preview */}
+                {result.extractedText && (
+                  <div className="mt-2 text-sm">
+                    <div className="font-semibold opacity-70">📝 Text Preview:</div>
+                    <div className="text-xs opacity-70 mt-1">
+                      {result.extractedText.substring(0, 200)}...
+                      <span className="text-blue-500 ml-2">
+                        ({result.extractedText.split(/\s+/).length} words)
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {session.jobs.filter(j => j.status === 'completed' && j.results.length > 0).length === 0 && (
+            <div className="text-center opacity-50 py-8">No extracted data yet</div>
+          )}
+        </div>
+      </NeuCard>
+
+      <NeuCard className="p-6">
+        <h2 className="text-2xl font-semibold mb-4">Crawled Jobs ({session.jobs.length})</h2>
         <div className="space-y-2">
           {session.jobs.map((job) => (
             <a
@@ -177,10 +336,17 @@ export default function SessionDetailPage() {
             >
               <div className="flex justify-between items-center">
                 <div className="break-all">{job.url}</div>
-                <div className={`font-semibold uppercase text-xs ${
-                  job.status === 'completed' ? 'text-green-500' : 'text-gray-500'
-                }`}>
-                  {job.status}
+                <div className="flex gap-2 items-center">
+                  {job.results && job.results.length > 0 && job.results[0].structuredData && (
+                    <span className="text-xs neu-card-inset px-2 py-1 rounded text-green-500">
+                      ✓ Data
+                    </span>
+                  )}
+                  <div className={`font-semibold uppercase text-xs ${
+                    job.status === 'completed' ? 'text-green-500' : 'text-gray-500'
+                  }`}>
+                    {job.status}
+                  </div>
                 </div>
               </div>
             </a>

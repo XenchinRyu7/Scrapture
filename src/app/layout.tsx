@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import DarkModeToggle from "@/components/DarkModeToggle";
+import { ToastProvider } from "@/components/Toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,15 +30,17 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 p-8">
-            <div className="flex justify-end mb-6">
-              <DarkModeToggle />
-            </div>
-            {children}
-          </main>
-        </div>
+        <ToastProvider>
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <main className="flex-1 p-8">
+              <div className="flex justify-end mb-6">
+                <DarkModeToggle />
+              </div>
+              {children}
+            </main>
+          </div>
+        </ToastProvider>
       </body>
     </html>
   );

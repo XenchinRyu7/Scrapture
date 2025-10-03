@@ -13,6 +13,7 @@ export default function Sidebar() {
     { href: '/results', label: 'Results', icon: '📄' },
     { href: '/configs', label: 'Configs', icon: '⚙️' },
     { href: '/logs', label: 'Logs', icon: '📝' },
+    { href: '/settings', label: 'Settings', icon: '⚙️' },
   ];
 
   return (

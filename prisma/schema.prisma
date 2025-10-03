@@ -80,18 +80,23 @@ model CrawlJob {
 }
 
 model CrawlResult {
-  id             String   @id @default(uuid())
-  jobId          String
-  url            String
-  htmlContent    String?
-  jsonData       String?
-  screenshotPath String?
-  apiResponses   String?
-  createdAt      DateTime @default(now())
+  id              String   @id @default(uuid())
+  jobId           String
+  url             String
+  htmlContent     String?
+  jsonData        String?
+  screenshotPath  String?
+  apiResponses    String?
+  structuredData  String?
+  metadata        String?
+  contentHash     String?
+  extractedText   String?
+  createdAt       DateTime @default(now())
   
-  job            CrawlJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job             CrawlJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
   
   @@index([jobId])
+  @@index([contentHash])
 }
 
 model CrawlLog {

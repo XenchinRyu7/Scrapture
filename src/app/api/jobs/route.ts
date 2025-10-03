@@ -5,24 +5,47 @@ import { enqueueCrawl } from '@/lib/queue';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
-  const limit = parseInt(searchParams.get('limit') || '50');
+  const sessionId = searchParams.get('sessionId');
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '20');
   const includeLogs = searchParams.get('includeLogs') === 'true';
   const includeResults = searchParams.get('includeResults') === 'true';
+  const skip = (page - 1) * limit;
 
-  const where = status ? { status } : {};
+  const where: any = {};
+  if (status && status !== 'all') where.status = status;
+  if (sessionId && sessionId !== 'all') where.sessionId = sessionId;
 
-  const jobs = await prisma.crawlJob.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    include: {
-      domainConfig: true,
-      logs: includeLogs ? { orderBy: { timestamp: 'asc' } } : false,
-      results: includeResults,
+  const [jobs, total] = await Promise.all([
+    prisma.crawlJob.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      include: {
+        domainConfig: true,
+        logs: includeLogs ? { orderBy: { timestamp: 'asc' } } : false,
+        results: includeResults,
+        _count: {
+          select: {
+            results: true,
+            logs: true,
+          },
+        },
+      },
+    }),
+    prisma.crawlJob.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    jobs,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     },
   });
-
-  return NextResponse.json(jobs);
 }
 
 export async function POST(request: NextRequest) {

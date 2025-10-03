@@ -3,6 +3,7 @@ import { prisma } from './db';
 import { normalizeUrl, isNonHtmlResource, isSameDomain, hashContent, calculateUrlPriority } from './url-normalizer';
 import { parseRobotsTxt, RobotsRules } from './robots-parser';
 import { parseSitemap, discoverSitemaps } from './sitemap-parser';
+import { parseHTML, extractJSONLD, extractMetadata } from './html-parser';
 import crypto from 'crypto';
 
 export interface CrawlSessionConfig {
@@ -269,6 +270,13 @@ export class AdvancedCrawler {
       }
       this.visitedHashes.add(contentHash);
 
+      // Parse HTML and extract structured data
+      const parsedHTML = parseHTML(htmlContent, url);
+      const jsonLD = extractJSONLD(htmlContent);
+      const metadata = extractMetadata(htmlContent);
+
+      await this.logMessage('info', `Extracted: ${parsedHTML.links.length} links, ${jsonLD.length} JSON-LD, ${parsedHTML.wordCount} words`);
+
       // Take screenshot
       let screenshotPath: string | undefined;
       if (this.config.screenshot) {
@@ -299,6 +307,10 @@ export class AdvancedCrawler {
           htmlContent,
           screenshotPath,
           apiResponses: apiResponses.length > 0 ? JSON.stringify(apiResponses) : null,
+          structuredData: jsonLD.length > 0 ? JSON.stringify(jsonLD) : null,
+          metadata: JSON.stringify(metadata),
+          extractedText: parsedHTML.bodyText,
+          contentHash,
         },
       });
 
