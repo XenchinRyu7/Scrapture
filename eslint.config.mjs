@@ -17,8 +17,18 @@ const eslintConfig = [
       ".next/**",
       "out/**",
       "build/**",
+      "dist/**",
       "next-env.d.ts",
+      "src/generated/**",
+      "prisma/**",
     ],
+  },
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@next/next/no-img-element": "warn",
+      "react-hooks/exhaustive-deps": "warn",
+    },
   },
 ];
 

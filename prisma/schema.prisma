@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model CrawlSession {
+  id             String   @id @default(uuid())
+  seedUrl        String
+  status         String   @default("pending")
+  maxDepth       Int      @default(3)
+  maxPages       Int      @default(100)
+  sameDomainOnly Boolean  @default(true)
+  followSitemap  Boolean  @default(true)
+  domainConfigId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  startedAt      DateTime?
+  completedAt    DateTime?
+  
+  domainConfig   DomainConfig? @relation(fields: [domainConfigId], references: [id])
+  discoveredUrls DiscoveredUrl[]
+  jobs           CrawlJob[]
+  
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DiscoveredUrl {
+  id              String   @id @default(uuid())
+  sessionId       String
+  url             String
+  normalizedUrl   String
+  canonicalUrl    String?
+  status          String   @default("queued")
+  depth           Int      @default(0)
+  parentUrl       String?
+  statusCode      Int?
+  contentHash     String?
+  discoveredAt    DateTime @default(now())
+  crawledAt       DateTime?
+  error           String?
+  
+  session         CrawlSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@unique([sessionId, normalizedUrl])
+  @@index([sessionId, status])
+  @@index([normalizedUrl])
+}
+
+model CrawlJob {
+  id             String   @id @default(uuid())
+  sessionId      String?
+  url            String
+  status         String   @default("pending")
+  priority       Int      @default(1)
+  depth          Int      @default(0)
+  domainConfigId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  
+  session        CrawlSession? @relation(fields: [sessionId], references: [id])
+  domainConfig   DomainConfig? @relation(fields: [domainConfigId], references: [id])
+  results        CrawlResult[]
+  logs           CrawlLog[]
+  
+  @@index([status])
+  @@index([createdAt])
+  @@index([sessionId])
+}
+
+model CrawlResult {
+  id             String   @id @default(uuid())
+  jobId          String
+  url            String
+  htmlContent    String?
+  jsonData       String?
+  screenshotPath String?
+  apiResponses   String?
+  createdAt      DateTime @default(now())
+  
+  job            CrawlJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  @@index([jobId])
+}
+
+model CrawlLog {
+  id        String   @id @default(uuid())
+  jobId     String
+  level     String
+  message   String
+  timestamp DateTime @default(now())
+  
+  job       CrawlJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  @@index([jobId])
+  @@index([timestamp])
+}
+
+model DomainConfig {
+  id            String   @id @default(uuid())
+  domain        String   @unique
+  rateLimit     Int      @default(1000)
+  concurrency   Int      @default(1)
+  delay         Int      @default(1000)
+  respectRobots Boolean  @default(true)
+  robotsTxt     String?
+  crawlDelay    Int?
+  userAgent     String?
+  headers       String?
+  selectors     String?
+  enableAI      Boolean  @default(false)
+  aiPrompt      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  jobs          CrawlJob[]
+  sessions      CrawlSession[]
+  
+  @@index([domain])
+}
