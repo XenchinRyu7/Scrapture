@@ -1,0 +1,37 @@
+# Add labels to pull requests based on changed files
+
+# Documentation
+'documentation':
+  - '*.md'
+  - 'docs/**/*'
+
+# Frontend
+'frontend':
+  - 'src/app/**/*'
+  - 'src/components/**/*'
+
+# Backend
+'backend':
+  - 'src/lib/**/*'
+  - 'worker*.ts'
+  - 'cli.ts'
+
+# Database
+'database':
+  - 'prisma/**/*'
+
+# Configuration
+'configuration':
+  - '*.config.*'
+  - '*.json'
+  - 'Dockerfile*'
+  - 'docker-compose.yml'
+
+# Dependencies
+'dependencies':
+  - 'package.json'
+  - 'package-lock.json'
+
+# GitHub
+'github':
+  - '.github/**/*'

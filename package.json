@@ -1,6 +1,26 @@
 {
   "name": "scrapture",
   "version": "0.1.0",
+  "description": "A powerful, self-hosted web scraping framework with beautiful neumorphism UI",
+  "author": "XenchinRyu7",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XenchinRyu7/Scrapture.git"
+  },
+  "bugs": {
+    "url": "https://github.com/XenchinRyu7/Scrapture/issues"
+  },
+  "homepage": "https://github.com/XenchinRyu7/Scrapture#readme",
+  "keywords": [
+    "web-scraping",
+    "crawler",
+    "playwright",
+    "nextjs",
+    "bullmq",
+    "typescript",
+    "neumorphism"
+  ],
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

@@ -1,5 +1,11 @@
 # Scrapture 🕷️
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
+[![Playwright](https://img.shields.io/badge/Playwright-Latest-green)](https://playwright.dev/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 **Scrapture** is a powerful, self-hosted web scraping framework built with Next.js, Playwright, and BullMQ. It features a beautiful neumorphism design dashboard for monitoring crawl jobs, viewing results, and managing configurations.
 
 ## ✨ Features
@@ -274,9 +280,19 @@ Edit `src/app/globals.css` to customize the neumorphism theme:
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We love contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) to get started.
+
+### Ways to Contribute
+
+- 🐛 Report bugs and issues
+- 💡 Suggest new features
+- 📝 Improve documentation
+- 🔧 Submit pull requests
+- ⭐ Star the project if you find it useful!
 
 ## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 MIT License - feel free to use this project for personal or commercial purposes.
 
@@ -287,9 +303,20 @@ MIT License - feel free to use this project for personal or commercial purposes.
 - Queue system by [BullMQ](https://docs.bullmq.io/)
 - UI inspired by neumorphism design principles
 
-## 📞 Support
+## � Security
+
+Security is important to us. If you discover a security vulnerability, please review our [Security Policy](SECURITY.md) for information on how to report it responsibly.
+
+## �📞 Support
 
 For issues, questions, or contributions, please open an issue on GitHub.
+
+### Getting Help
+
+- 📖 Read the [Documentation](README.md)
+- 💬 Check [existing issues](https://github.com/XenchinRyu7/Scrapture/issues)
+- ❓ Ask a question by creating a new issue with the `question` label
+- 💡 Suggest features through [feature requests](https://github.com/XenchinRyu7/Scrapture/issues/new?template=feature_request.md)
 
 ---
 
